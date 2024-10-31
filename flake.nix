@@ -1,19 +1,9 @@
 {
-  # Annoyingly, it's not possible to have test-only dependencies. So we
-  # do this trick with a fake nixpkgs, which when used disables the tests.
-  # To enable the tests, uncomment this line and comment the next ones.
-  # Don't leave it like this on 'main' though since then all dependencies
-  # will fetch nixpkgs too
-  # inputs.nixpkgs.url = "github:NixOS/nixpkgs/release-24.05";
-  inputs.nixpkgs = {
-    flake = false;
-    url = "path:fakeNixpkgs.nix";
-  };
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/release-24.05";
 
   outputs = { nixpkgs, self } :
 
   let wantedAttrs = ["packages" "checks" "devShells"];
-      ifRealNixpkgs = arg : if nixpkgs ? fakeNixPkgs then {} else arg;
   in {
     # 'withCaches is meant to wrap the entire 'outputs'. It
     # allows any 'checks'/'packages' to have an extra argument,
@@ -32,14 +22,16 @@
     lib.withCaches = self.lib.withCachesFor {};
 
     lib.withCachesFor = prev: outputs:
-     let emptyDerivation = system: derivation {
-           name = "emptyDerivation";
-           system = system;
-           builder = "/bin/sh";
-           args = ["-c" ''
-              mkdir $out
-           ''];
-           };
+     let emptyDerivation = system:
+           let pkgs = nixpkgs.legacyPackages.${system};
+           in derivation {
+             name = "emptyDerivation";
+             system = system;
+             builder = "/bin/sh";
+             args = ["-c" ''
+                ${pkgs.coreutils}/bin/mkdir $out
+             ''];
+             };
       in (builtins.mapAttrs (type:
            builtins.mapAttrs (sys:
              builtins.mapAttrs (pkg: def:
@@ -75,11 +67,10 @@
         expected = 1781;
       };
     };
-   } // ifRealNixpkgs {
 
-    checks.x86_64-linux.default =
+    checks.x86_64-linux.unitTests =
      let pkgs = nixpkgs.legacyPackages.x86_64-linux;
-     in pkgs.runCommand "tests"
+     in pkgs.runCommand "unitTests"
         {
           nativeBuildInputs = [ pkgs.nix-unit ];
         } ''
@@ -91,5 +82,14 @@
           --flake ${self}#tests
         touch $out
     '';
+
+    devShells.x86_64-linux.default =
+      let pkgs = nixpkgs.legacyPackages.x86_64-linux;
+       in pkgs.mkShell {
+         packages = [
+            pkgs.nix-unit
+         ];
+       };
   };
+
 }
