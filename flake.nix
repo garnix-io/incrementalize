@@ -22,21 +22,12 @@
     lib.withCaches = self.lib.withCachesFor {};
 
     lib.withCachesFor = prev: outputs:
-     let emptyDerivation = system:
-           let pkgs = nixpkgs.legacyPackages.${system};
-           in derivation {
-             name = "emptyDerivation";
-             system = system;
-             builder = "/bin/sh";
-             args = ["-c" ''
-                ${pkgs.coreutils}/bin/mkdir $out
-             ''];
-             };
+     let emptyDir = "${./emptyDir}";
       in (builtins.mapAttrs (type:
            builtins.mapAttrs (sys:
              builtins.mapAttrs (pkg: def:
                if builtins.elem type wantedAttrs && builtins.isFunction def
-               then (def (prev.${type}.${sys}.${pkg}.intermediates or emptyDerivation sys))
+               then (def (prev.${type}.${sys}.${pkg}.intermediates or emptyDir))
                else def
              )))) outputs;
 
@@ -51,8 +42,8 @@
           let flake = self.lib.withCaches {
             packages.x86_64-linux.foo = cache : cache;
           };
-          in flake.packages.x86_64-linux.foo.name;
-        expected = "emptyDerivation";
+          in builtins.isString flake.packages.x86_64-linux.foo;
+        expected = true;
       };
 
       testDoesNothingWhenNotFunction = {
