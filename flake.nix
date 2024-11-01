@@ -36,7 +36,7 @@
            builtins.mapAttrs (sys:
              builtins.mapAttrs (pkg: def:
                if builtins.elem type wantedAttrs && builtins.isFunction def
-               then (def (prev.${type}.${sys}.${pkg} or emptyDerivation sys))
+               then (def (prev.${type}.${sys}.${pkg}.intermediates or emptyDerivation sys))
                else def
              )))) outputs;
 
