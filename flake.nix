@@ -23,9 +23,10 @@
 
     lib.withCachesFor = prev: outputs:
      let emptyDir = "${./emptyDir}";
-      in (builtins.mapAttrs (type:
-           builtins.mapAttrs (sys:
-             builtins.mapAttrs (pkg: def:
+         mapAttrsIfSet = fn : s : if builtins.isAttrs s then builtins.mapAttrs fn s else s;
+      in (mapAttrsIfSet (type:
+           mapAttrsIfSet (sys:
+             mapAttrsIfSet (pkg: def:
                if builtins.elem type wantedAttrs && builtins.isFunction def
                then (def (prev.${type}.${sys}.${pkg}.intermediates or emptyDir))
                else def
@@ -56,6 +57,21 @@
           };
           in flake.packages.x86_64-linux.foo;
         expected = 1781;
+      };
+
+      testHandlesWeirdOuputs = {
+        description = ''
+          Package arguments that are not functions should be applied returned unmodified
+        '';
+        expr =
+          self.lib.withCaches {
+            foo = 3;
+            bar.baz.quux.wat.skibidi = 4;
+          };
+        expected = {
+            foo = 3;
+            bar.baz.quux.wat.skibidi = 4;
+        };
       };
     };
 
