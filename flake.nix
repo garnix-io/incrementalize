@@ -28,7 +28,10 @@
            mapAttrsIfSet (sys:
              mapAttrsIfSet (pkg: def:
                if builtins.elem type wantedAttrs && builtins.isFunction def
-               then (def (prev.${type}.${sys}.${pkg}.intermediates or emptyDir))
+               then
+                 let path = prev.${type}.${sys}.${pkg}.intermediates or emptyDir;
+                     val = { __toString = _x : path; hasCache = false; };
+                 in def val
                else def
              )))) outputs;
 
@@ -43,8 +46,21 @@
           let flake = self.lib.withCaches {
             packages.x86_64-linux.foo = cache : cache;
           };
-          in builtins.isString flake.packages.x86_64-linux.foo;
+          # We just need to test that it doesn't throw
+          in builtins.isString "${flake.packages.x86_64-linux.foo}";
         expected = true;
+      };
+
+      testSaysItsWithoutCache  = {
+        description = ''
+          If there is no cached value, hasCache should be false.
+        '';
+        expr =
+          let flake = self.lib.withCaches {
+            packages.x86_64-linux.foo = cache : cache;
+          };
+          in flake.packages.x86_64-linux.foo.hasCache;
+        expected = false;
       };
 
       testDoesNothingWhenNotFunction = {
